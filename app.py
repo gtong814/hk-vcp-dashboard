@@ -29,8 +29,12 @@ def load_price_history(ticker):
 
 df = load_scan_results()
 
-if df.empty or "Signal" not in df.columns:
+if "Signal" not in df.columns:
     st.warning("請先到 GitHub Actions 手動執行一次 Daily Scan 以更新最新訊號欄位。")
+    st.stop()
+
+if df.empty:
+    st.info("今日已完成掃描，暫時未有港股通股份符合目前的嚴格 VCP / Cheat 收縮條件。")
     st.stop()
 
 st.caption(f"最後更新時間 (HKT)：{df['Updated'].iloc[0]}（每日 16:10 自動更新）")
