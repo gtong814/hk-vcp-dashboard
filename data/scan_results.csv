@@ -1,1 +1,1 @@
-﻿Ticker,Name,Pattern,Close,Pivot,Dist_Pivot_%,Dist_52W_High_%,Range_10D_%,Contraction,Vol_Ratio_5_50,RS_Raw,RS_Rank,Updated
+﻿Ticker,Name,Signal,Pattern,Close,Day_Chg_%,Pivot,Dist_Pivot_%,Today_Vol_Ratio,Vol_Ratio_5_50,Dist_52W_High_%,Range_10D_%,RS_Raw,RS_Rank,Updated
