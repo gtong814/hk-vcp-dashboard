@@ -7,28 +7,37 @@ import yfinance as yf
 
 
 def get_ggt_tickers():
-    """取得最新港股通成分股並轉換為 Yahoo Finance 代碼格式"""
+    """取得最新港股通成分股，成功時自動備份到 data/ggt_list.csv"""
     try:
         df = ak.stock_hk_ggt_components_em()
         codes = df["代码"].astype(str).tolist()
         names = df["名称"].astype(str).tolist()
         mapping = {}
+        rows = []
         for c, n in zip(codes, names):
             num = int(c)
             yf_code = f"{num:04d}.HK" if num < 10000 else f"{num:05d}.HK"
             mapping[yf_code] = n
+            rows.append({"Ticker": yf_code, "Name": n})
+        # 成功抓取時自動存檔備份
+        os.makedirs("data", exist_ok=True)
+        pd.DataFrame(rows).to_csv("data/ggt_list.csv", index=False, encoding="utf-8-sig")
         return mapping
     except Exception as e:
         print(f"akshare 抓取失敗，改用備用清單: {e}")
         if os.path.exists("data/ggt_list.csv"):
             backup = pd.read_csv("data/ggt_list.csv")
             return dict(zip(backup["Ticker"], backup["Name"]))
+        # 擴大預設熱門港股通清單（避免完全空倉）
         return {
             "0700.HK": "騰訊控股", "9988.HK": "阿里巴巴-W", "3690.HK": "美團-W",
             "1810.HK": "小米集團-W", "0981.HK": "中芯國際", "1211.HK": "比亞迪股份",
-            "9660.HK": "地平線機器人-W", "1686.HK": "新意網集團", "1133.HK": "哈爾濱電氣",
+            "0941.HK": "中國移動", "0883.HK": "中國海洋石油", "0939.HK": "建設銀行",
+            "1398.HK": "工商銀行", "2318.HK": "中國平安", "0388.HK": "香港交易所",
+            "9888.HK": "百度集團-SW", "9618.HK": "京東集團-SW", "9999.HK": "網易-S",
+            "2015.HK": "理想汽車-W", "9868.HK": "小鵬汽車-W", "9660.HK": "地平線機器人-W",
+            "1686.HK": "新意網集團", "1133.HK": "哈爾濱電氣", "2858.HK": "易鑫集團",
         }
-
 
 def analyze_stock(df, ticker, name):
     if df is None or len(df) < 210:
