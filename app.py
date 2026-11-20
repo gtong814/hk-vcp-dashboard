@@ -5,10 +5,10 @@ import streamlit as st
 import yfinance as yf
 
 st.set_page_config(page_title="港股通 VCP / Cheat 掃描儀", layout="wide")
-st.title("港股通 VCP / Cheat / Low Cheat 型態監控 Dashboard")
+st.title("港股通 VCP / Cheat / Low Cheat 即日收市訊號 Dashboard")
 
 
-@st.cache_data(ttl=1800)
+@st.cache_data(ttl=600)
 def load_scan_results():
     try:
         return pd.read_csv("data/scan_results.csv")
@@ -16,7 +16,7 @@ def load_scan_results():
         return pd.DataFrame()
 
 
-@st.cache_data(ttl=1800)
+@st.cache_data(ttl=600)
 def load_price_history(ticker):
     df = yf.download(ticker, period="1y", auto_adjust=True, progress=False)
     if isinstance(df.columns, pd.MultiIndex):
@@ -29,40 +29,41 @@ def load_price_history(ticker):
 
 df = load_scan_results()
 
-if df.empty:
-    st.warning("尚未有掃描結果，請先在 GitHub Actions 手動觸發一次 Daily Scan。")
+if df.empty or "Signal" not in df.columns:
+    st.warning("請先到 GitHub Actions 手動執行一次 Daily Scan 以更新最新訊號欄位。")
     st.stop()
 
-st.caption(f"最後更新時間 (HKT)：{df['Updated'].iloc[0]}")
+st.caption(f"最後更新時間 (HKT)：{df['Updated'].iloc[0]}（每日 16:10 自動更新）")
 
 # 側邊欄過濾器
 with st.sidebar:
     st.header("篩選條件")
+    all_signals = ["🔥 即日放量突破", "⚡ 即日突破(縮量)", "👀 逼近突破", "💤 蓄勢收縮"]
+    signals = st.multiselect("即日收市訊號", all_signals, default=all_signals)
     patterns = st.multiselect(
         "型態分類", ["VCP", "Cheat", "Low Cheat"], default=["VCP", "Cheat", "Low Cheat"]
     )
-    max_range = st.slider("近 10 日最大波幅 (%)", 2.0, 15.0, 10.0, 0.5)
-    max_vol_ratio = st.slider("5日/50日量比上限", 0.2, 1.0, 0.75, 0.05)
+    max_range = st.slider("整理期 10 日最大波幅 (%)", 2.0, 15.0, 12.0, 0.5)
 
 filtered = df[
-    (df["Pattern"].isin(patterns))
+    (df["Signal"].isin(signals))
+    & (df["Pattern"].isin(patterns))
     & (df["Range_10D_%"] <= max_range)
-    & (df["Vol_Ratio_5_50"] <= max_vol_ratio)
 ]
 
 # 頂部統計指標
-c1, c2, c3, c4 = st.columns(4)
+c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("總篩選數量", len(filtered))
-c2.metric("VCP", int((filtered["Pattern"] == "VCP").sum()))
-c3.metric("Cheat", int((filtered["Pattern"] == "Cheat").sum()))
-c4.metric("Low Cheat", int((filtered["Pattern"] == "Low Cheat").sum()))
+c2.metric("🔥 即日放量突破", int((filtered["Signal"] == "🔥 即日放量突破").sum()))
+c3.metric("👀 逼近突破", int((filtered["Signal"] == "👀 逼近突破").sum()))
+c4.metric("VCP", int((filtered["Pattern"] == "VCP").sum()))
+c5.metric("Cheat / Low Cheat", int(filtered["Pattern"].isin(["Cheat", "Low Cheat"]).sum()))
 
 st.dataframe(
     filtered[
         [
-            "Ticker", "Name", "Pattern", "Close", "Pivot",
-            "Dist_Pivot_%", "Dist_52W_High_%", "Range_10D_%",
-            "Vol_Ratio_5_50", "RS_Rank",
+            "Ticker", "Name", "Signal", "Pattern", "Close", "Day_Chg_%",
+            "Pivot", "Dist_Pivot_%", "Today_Vol_Ratio", "Range_10D_%", "RS_Rank",
         ]
     ],
     use_container_width=True,
@@ -72,7 +73,7 @@ st.dataframe(
 # 互動 K 線圖
 if not filtered.empty:
     st.subheader("個股型態檢視")
-    options = [f"{r.Ticker} - {r.Name} ({r.Pattern})" for r in filtered.itertuples()]
+    options = [f"{r.Ticker} - {r.Name} [{r.Signal} | {r.Pattern}]" for r in filtered.itertuples()]
     selected = st.selectbox("選擇股份查看日線圖", options)
     sel_ticker = selected.split(" - ")[0]
     sel_row = filtered[filtered["Ticker"] == sel_ticker].iloc[0]
